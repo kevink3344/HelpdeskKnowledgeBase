@@ -1,15 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Helpdesk API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tickets
+    description: Support ticket operations
+  - name: comments
+    description: Ticket comment operations
+  - name: attachments
+    description: File attachment operations
+  - name: kb
+    description: Knowledge base article operations
+  - name: stats
+    description: Dashboard statistics
 paths:
   /healthz:
     get:
@@ -24,6 +33,399 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /tickets:
+    get:
+      operationId: listTickets
+      tags: [tickets]
+      summary: List all tickets
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: assigneeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+    post:
+      operationId: createTicket
+      tags: [tickets]
+      summary: Create a new ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketBody"
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+
+  /tickets/{id}:
+    get:
+      operationId: getTicket
+      tags: [tickets]
+      summary: Get a ticket by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketDetail"
+        "404":
+          description: Ticket not found
+    patch:
+      operationId: updateTicket
+      tags: [tickets]
+      summary: Update a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTicketBody"
+      responses:
+        "200":
+          description: Ticket updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          description: Ticket not found
+    delete:
+      operationId: deleteTicket
+      tags: [tickets]
+      summary: Delete a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Ticket deleted
+        "404":
+          description: Ticket not found
+
+  /tickets/{id}/comments:
+    get:
+      operationId: listComments
+      tags: [comments]
+      summary: List comments for a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: createComment
+      tags: [comments]
+      summary: Add a comment to a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentBody"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+
+  /tickets/{id}/attachments:
+    get:
+      operationId: listAttachments
+      tags: [attachments]
+      summary: List attachments for a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attachment"
+
+  /attachments/upload:
+    post:
+      operationId: uploadAttachment
+      tags: [attachments]
+      summary: Upload a file attachment
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                ticketId:
+                  type: integer
+              required:
+                - file
+                - ticketId
+      responses:
+        "201":
+          description: Attachment uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+
+  /attachments/{id}:
+    delete:
+      operationId: deleteAttachment
+      tags: [attachments]
+      summary: Delete an attachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
+        "404":
+          description: Attachment not found
+
+  /kb/articles:
+    get:
+      operationId: listKbArticles
+      tags: [kb]
+      summary: List knowledge base articles
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: published
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of KB articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KbArticle"
+    post:
+      operationId: createKbArticle
+      tags: [kb]
+      summary: Create a knowledge base article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKbArticleBody"
+      responses:
+        "201":
+          description: Article created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+
+  /kb/articles/{id}:
+    get:
+      operationId: getKbArticle
+      tags: [kb]
+      summary: Get a knowledge base article by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Article found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+        "404":
+          description: Article not found
+    patch:
+      operationId: updateKbArticle
+      tags: [kb]
+      summary: Update a knowledge base article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKbArticleBody"
+      responses:
+        "200":
+          description: Article updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+        "404":
+          description: Article not found
+    delete:
+      operationId: deleteKbArticle
+      tags: [kb]
+      summary: Delete a knowledge base article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Article deleted
+        "404":
+          description: Article not found
+
+  /kb/articles/{id}/view:
+    post:
+      operationId: incrementKbArticleViews
+      tags: [kb]
+      summary: Increment view count for an article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: View count incremented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KbArticle"
+
+  /stats/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [stats]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /stats/tickets-by-status:
+    get:
+      operationId: getTicketsByStatus
+      tags: [stats]
+      summary: Get ticket counts grouped by status
+      responses:
+        "200":
+          description: Tickets by status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+
+  /stats/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [stats]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +436,377 @@ components:
       required:
         - status
 
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [open, in_progress, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        category:
+          type: string
+        submitterName:
+          type: string
+        submitterEmail:
+          type: string
+        assigneeId:
+          type: ["integer", "null"]
+        assigneeName:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        attachmentCount:
+          type: integer
+        commentCount:
+          type: integer
+      required:
+        - id
+        - title
+        - description
+        - status
+        - priority
+        - category
+        - submitterName
+        - submitterEmail
+        - assigneeId
+        - assigneeName
+        - resolvedAt
+        - createdAt
+        - updatedAt
+        - attachmentCount
+        - commentCount
+
+    TicketDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [open, in_progress, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        category:
+          type: string
+        submitterName:
+          type: string
+        submitterEmail:
+          type: string
+        assigneeId:
+          type: ["integer", "null"]
+        assigneeName:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+      required:
+        - id
+        - title
+        - description
+        - status
+        - priority
+        - category
+        - submitterName
+        - submitterEmail
+        - assigneeId
+        - assigneeName
+        - resolvedAt
+        - createdAt
+        - updatedAt
+        - comments
+        - attachments
+
+    CreateTicketBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        category:
+          type: string
+        submitterName:
+          type: string
+        submitterEmail:
+          type: string
+      required:
+        - title
+        - description
+        - priority
+        - category
+        - submitterName
+        - submitterEmail
+
+    UpdateTicketBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [open, in_progress, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        category:
+          type: string
+        assigneeId:
+          type: ["integer", "null"]
+        assigneeName:
+          type: ["string", "null"]
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        authorName:
+          type: string
+        authorEmail:
+          type: string
+        content:
+          type: string
+        isInternal:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ticketId
+        - authorName
+        - authorEmail
+        - content
+        - isInternal
+        - createdAt
+
+    CreateCommentBody:
+      type: object
+      properties:
+        authorName:
+          type: string
+        authorEmail:
+          type: string
+        content:
+          type: string
+        isInternal:
+          type: boolean
+      required:
+        - authorName
+        - authorEmail
+        - content
+        - isInternal
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        mimeType:
+          type: string
+        url:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ticketId
+        - fileName
+        - fileSize
+        - mimeType
+        - url
+        - createdAt
+
+    KbArticle:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        published:
+          type: boolean
+        viewCount:
+          type: integer
+        relatedTicketId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - content
+        - category
+        - tags
+        - published
+        - viewCount
+        - relatedTicketId
+        - createdAt
+        - updatedAt
+
+    CreateKbArticleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        published:
+          type: boolean
+        relatedTicketId:
+          type: ["integer", "null"]
+      required:
+        - title
+        - content
+        - category
+        - tags
+        - published
+
+    UpdateKbArticleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        published:
+          type: boolean
+        relatedTicketId:
+          type: ["integer", "null"]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalTickets:
+          type: integer
+        openTickets:
+          type: integer
+        inProgressTickets:
+          type: integer
+        resolvedTickets:
+          type: integer
+        closedTickets:
+          type: integer
+        urgentTickets:
+          type: integer
+        avgResolutionHours:
+          type: ["number", "null"]
+        totalKbArticles:
+          type: integer
+      required:
+        - totalTickets
+        - openTickets
+        - inProgressTickets
+        - resolvedTickets
+        - closedTickets
+        - urgentTickets
+        - avgResolutionHours
+        - totalKbArticles
+
+    StatusCount:
+      type: object
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+      required:
+        - status
+        - count
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [ticket_created, ticket_updated, ticket_resolved, comment_added, kb_article_created]
+        description:
+          type: string
+        ticketId:
+          type: ["integer", "null"]
+        ticketTitle:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - description
+        - ticketId
+        - ticketTitle
+        - createdAt

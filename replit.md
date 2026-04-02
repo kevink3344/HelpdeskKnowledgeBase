@@ -15,13 +15,15 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **File uploads**: Multer (local disk storage, /uploads dir)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── helpdesk/           # React + Vite helpdesk frontend (mounted at /)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -34,6 +36,34 @@ artifacts-monorepo/
 ├── tsconfig.json           # Root TS project references
 └── package.json            # Root package with hoisted devDeps
 ```
+
+## Helpdesk Application
+
+**SupportDesk** — a full-stack helpdesk system with integrated knowledge base.
+
+### Features
+- Ticket management (create, view, update, resolve, delete)
+- File attachment support (upload/download, 10MB limit, stored in /uploads)
+- Comment threads per ticket (public replies + internal notes)
+- Knowledge Base with published articles, categories, tags, view counts
+- Dashboard with real-time stats, status breakdown chart, recent activity feed
+- Search and filter across tickets and KB articles
+
+### Pages
+- `/` — Dashboard with stats + recent activity
+- `/tickets` — Ticket list with search + filters
+- `/tickets/new` — New ticket submission form
+- `/tickets/:id` — Ticket detail with comments, attachments, status management
+- `/kb` — Knowledge Base article grid
+- `/kb/new` — New KB article form
+- `/kb/:id` — Article detail view
+
+### Database Tables
+- `tickets` — Support tickets
+- `comments` — Ticket comments (public + internal)
+- `attachments` — File attachments (metadata, files stored on disk)
+- `kb_articles` — Knowledge base articles
+- `activity_log` — Recent activity feed entries
 
 ## TypeScript & Composite Projects
 
@@ -56,21 +86,32 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- Routes:
+  - `src/routes/health.ts` — GET /api/healthz
+  - `src/routes/tickets.ts` — CRUD for tickets + comments + attachments list
+  - `src/routes/attachments.ts` — File upload, file serving, delete
+  - `src/routes/kb.ts` — Knowledge base CRUD + view count
+  - `src/routes/stats.ts` — Dashboard stats, status breakdown, recent activity
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `multer`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle
+
+### `artifacts/helpdesk` (`@workspace/helpdesk`)
+
+React + Vite frontend for the helpdesk system. Mounted at `/` (root preview path).
+
+- Deep navy/indigo primary palette
+- Recharts for dashboard status chart
+- Wouter for routing
+- React Query via `@workspace/api-client-react` for all API calls
 
 ### `lib/db` (`@workspace/db`)
 
 Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/tickets.ts` — tickets, comments, attachments tables
+- `src/schema/kb.ts` — kb_articles, activity_log tables
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
 
 Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
 
@@ -82,15 +123,3 @@ Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.t
 2. `lib/api-zod/src/generated/` — Zod schemas
 
 Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
