@@ -42,6 +42,12 @@ export interface Ticket {
   /** @nullable */
   assigneeName: string | null;
   /** @nullable */
+  githubIssueUrl: string | null;
+  /** @nullable */
+  githubIssueNumber: number | null;
+  /** @nullable */
+  githubRepo: string | null;
+  /** @nullable */
   resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -102,6 +108,12 @@ export interface TicketDetail {
   assigneeId: number | null;
   /** @nullable */
   assigneeName: string | null;
+  /** @nullable */
+  githubIssueUrl: string | null;
+  /** @nullable */
+  githubIssueNumber: number | null;
+  /** @nullable */
+  githubRepo: string | null;
   /** @nullable */
   resolvedAt: string | null;
   createdAt: string;
@@ -241,6 +253,43 @@ export interface ActivityItem {
   createdAt: string;
 }
 
+export interface GithubRepo {
+  id: number;
+  name: string;
+  fullName: string;
+  /** @nullable */
+  description: string | null;
+  htmlUrl: string;
+  private: boolean;
+  openIssuesCount: number;
+}
+
+export interface GithubIssue {
+  id: number;
+  number: number;
+  title: string;
+  /** @nullable */
+  body: string | null;
+  state: string;
+  htmlUrl: string;
+  labels: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateGithubIssueBody {
+  title: string;
+  body: string;
+  ticketId: number;
+  labels?: string[];
+}
+
+export interface LinkGithubIssueBody {
+  issueNumber: number;
+  issueUrl: string;
+  repo: string;
+}
+
 export type ListTicketsParams = {
   status?: string;
   priority?: string;
@@ -261,4 +310,8 @@ export type ListKbArticlesParams = {
   search?: string;
   category?: string;
   published?: boolean;
+};
+
+export type ListGithubIssuesParams = {
+  state?: string;
 };

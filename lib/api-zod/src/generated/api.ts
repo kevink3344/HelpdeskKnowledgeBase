@@ -37,6 +37,9 @@ export const ListTicketsResponseItem = zod.object({
   submitterEmail: zod.string(),
   assigneeId: zod.number().nullable(),
   assigneeName: zod.string().nullable(),
+  githubIssueUrl: zod.string().nullable(),
+  githubIssueNumber: zod.number().nullable(),
+  githubRepo: zod.string().nullable(),
   resolvedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -75,6 +78,9 @@ export const GetTicketResponse = zod.object({
   submitterEmail: zod.string(),
   assigneeId: zod.number().nullable(),
   assigneeName: zod.string().nullable(),
+  githubIssueUrl: zod.string().nullable(),
+  githubIssueNumber: zod.number().nullable(),
+  githubRepo: zod.string().nullable(),
   resolvedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -130,6 +136,9 @@ export const UpdateTicketResponse = zod.object({
   submitterEmail: zod.string(),
   assigneeId: zod.number().nullable(),
   assigneeName: zod.string().nullable(),
+  githubIssueUrl: zod.string().nullable(),
+  githubIssueNumber: zod.number().nullable(),
+  githubRepo: zod.string().nullable(),
   resolvedAt: zod.coerce.date().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -365,3 +374,119 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary List authenticated user's GitHub repositories
+ */
+export const ListGithubReposResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  fullName: zod.string(),
+  description: zod.string().nullable(),
+  htmlUrl: zod.string(),
+  private: zod.boolean(),
+  openIssuesCount: zod.number(),
+});
+export const ListGithubReposResponse = zod.array(ListGithubReposResponseItem);
+
+/**
+ * @summary List issues for a GitHub repository
+ */
+export const ListGithubIssuesParams = zod.object({
+  owner: zod.coerce.string(),
+  repo: zod.coerce.string(),
+});
+
+export const ListGithubIssuesQueryParams = zod.object({
+  state: zod.coerce.string().optional(),
+});
+
+export const ListGithubIssuesResponseItem = zod.object({
+  id: zod.number(),
+  number: zod.number(),
+  title: zod.string(),
+  body: zod.string().nullable(),
+  state: zod.string(),
+  htmlUrl: zod.string(),
+  labels: zod.array(zod.string()),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListGithubIssuesResponse = zod.array(ListGithubIssuesResponseItem);
+
+/**
+ * @summary Create a GitHub issue from a ticket
+ */
+export const CreateGithubIssueParams = zod.object({
+  owner: zod.coerce.string(),
+  repo: zod.coerce.string(),
+});
+
+export const CreateGithubIssueBody = zod.object({
+  title: zod.string(),
+  body: zod.string(),
+  ticketId: zod.number(),
+  labels: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Link a ticket to a GitHub issue
+ */
+export const LinkTicketToGithubIssueParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const LinkTicketToGithubIssueBody = zod.object({
+  issueNumber: zod.number(),
+  issueUrl: zod.string(),
+  repo: zod.string(),
+});
+
+export const LinkTicketToGithubIssueResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_progress", "resolved", "closed"]),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  category: zod.string(),
+  submitterName: zod.string(),
+  submitterEmail: zod.string(),
+  assigneeId: zod.number().nullable(),
+  assigneeName: zod.string().nullable(),
+  githubIssueUrl: zod.string().nullable(),
+  githubIssueNumber: zod.number().nullable(),
+  githubRepo: zod.string().nullable(),
+  resolvedAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  attachmentCount: zod.number(),
+  commentCount: zod.number(),
+});
+
+/**
+ * @summary Unlink a ticket from its GitHub issue
+ */
+export const UnlinkTicketFromGithubIssueParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UnlinkTicketFromGithubIssueResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_progress", "resolved", "closed"]),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  category: zod.string(),
+  submitterName: zod.string(),
+  submitterEmail: zod.string(),
+  assigneeId: zod.number().nullable(),
+  assigneeName: zod.string().nullable(),
+  githubIssueUrl: zod.string().nullable(),
+  githubIssueNumber: zod.number().nullable(),
+  githubRepo: zod.string().nullable(),
+  resolvedAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  attachmentCount: zod.number(),
+  commentCount: zod.number(),
+});

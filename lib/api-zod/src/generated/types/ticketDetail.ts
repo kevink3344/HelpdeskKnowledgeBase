@@ -24,6 +24,12 @@ export interface TicketDetail {
   /** @nullable */
   assigneeName: string | null;
   /** @nullable */
+  githubIssueUrl: string | null;
+  /** @nullable */
+  githubIssueNumber: number | null;
+  /** @nullable */
+  githubRepo: string | null;
+  /** @nullable */
   resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

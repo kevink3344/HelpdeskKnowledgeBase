@@ -7,19 +7,25 @@ import {
   useGetTicket, 
   useUpdateTicket, 
   useCreateComment, 
-  useUploadAttachment, 
-  useDeleteAttachment 
+  useDeleteAttachment,
+  useListGithubRepos,
+  useListGithubIssues,
+  useCreateGithubIssue,
+  useLinkTicketToGithubIssue,
+  useUnlinkTicketFromGithubIssue,
+  getGetTicketQueryKey,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { 
-  Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter 
+  Card, CardContent, CardHeader, CardTitle, CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from "@/components/ui/select";
@@ -30,13 +36,255 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, Paperclip, MessageSquare, Clock, User, Tag, 
-  AlertCircle, CheckCircle2, Shield, FileText, Download, X
+  Shield, FileText, Download, X, Github, ExternalLink, Link2, Link2Off, Plus, ChevronDown, ChevronRight
 } from "lucide-react";
 
 const commentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty"),
   isInternal: z.boolean().default(false),
 });
+
+function GithubPanel({ ticketId, ticket }: { ticketId: number; ticket: any }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"idle" | "create" | "link">("idle");
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [issueTitle, setIssueTitle] = useState("");
+  const [issueBody, setIssueBody] = useState("");
+  const [linkIssueNumber, setLinkIssueNumber] = useState("");
+  const [linkIssueUrl, setLinkIssueUrl] = useState("");
+
+  const { data: repos, isLoading: reposLoading } = useListGithubRepos({
+    query: { enabled: mode === "create" || mode === "link" }
+  });
+
+  const [ownerRepo, setOwnerRepo] = useState<{ owner: string; repo: string } | null>(null);
+  const { data: issues, isLoading: issuesLoading } = useListGithubIssues(
+    ownerRepo?.owner ?? "", ownerRepo?.repo ?? "",
+    { state: "open" },
+    { query: { enabled: !!ownerRepo && mode === "link" } }
+  );
+
+  const createIssue = useCreateGithubIssue();
+  const linkIssue = useLinkTicketToGithubIssue();
+  const unlinkIssue = useUnlinkTicketFromGithubIssue();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/tickets/${ticketId}`] });
+  };
+
+  const handleRepoChange = (val: string) => {
+    setSelectedRepo(val);
+    const [owner, repo] = val.split("/");
+    setOwnerRepo({ owner, repo });
+  };
+
+  const handleCreate = () => {
+    if (!ownerRepo || !issueTitle) return;
+    createIssue.mutate(
+      { owner: ownerRepo.owner, repo: ownerRepo.repo, data: { title: issueTitle, body: issueBody, ticketId } },
+      {
+        onSuccess: (issue) => {
+          toast({ title: "GitHub issue created", description: `#${issue.number}: ${issue.title}` });
+          setMode("idle");
+          setIssueTitle(""); setIssueBody(""); setSelectedRepo("");
+          invalidate();
+        },
+        onError: () => toast({ title: "Failed to create issue", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleLinkExisting = (issueNum: number, url: string) => {
+    if (!selectedRepo) return;
+    linkIssue.mutate(
+      { id: ticketId, data: { issueNumber: issueNum, issueUrl: url, repo: selectedRepo } },
+      {
+        onSuccess: () => {
+          toast({ title: "GitHub issue linked" });
+          setMode("idle"); setSelectedRepo("");
+          invalidate();
+        },
+        onError: () => toast({ title: "Failed to link issue", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleLinkManual = () => {
+    const num = parseInt(linkIssueNumber, 10);
+    if (!selectedRepo || isNaN(num) || !linkIssueUrl) return;
+    linkIssue.mutate(
+      { id: ticketId, data: { issueNumber: num, issueUrl: linkIssueUrl, repo: selectedRepo } },
+      {
+        onSuccess: () => {
+          toast({ title: "GitHub issue linked" });
+          setMode("idle"); setSelectedRepo(""); setLinkIssueNumber(""); setLinkIssueUrl("");
+          invalidate();
+        },
+        onError: () => toast({ title: "Failed to link issue", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleUnlink = () => {
+    unlinkIssue.mutate({ id: ticketId }, {
+      onSuccess: () => {
+        toast({ title: "GitHub issue unlinked" });
+        invalidate();
+      },
+      onError: () => toast({ title: "Failed to unlink issue", variant: "destructive" }),
+    });
+  };
+
+  const isLinked = !!(ticket.githubIssueUrl && ticket.githubIssueNumber);
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Github className="w-4 h-4" /> GitHub Integration
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {isLinked ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-green-800 dark:text-green-300 flex items-center gap-1.5 flex-wrap">
+                  <Link2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-xs text-green-600 dark:text-green-500">{ticket.githubRepo}</span>
+                </div>
+                <a
+                  href={ticket.githubIssueUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 flex items-center gap-1 text-green-700 dark:text-green-400 hover:underline text-xs font-medium"
+                >
+                  Issue #{ticket.githubIssueNumber}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs text-muted-foreground"
+              onClick={handleUnlink}
+              disabled={unlinkIssue.isPending}
+            >
+              <Link2Off className="w-3.5 h-3.5 mr-1.5" />
+              {unlinkIssue.isPending ? "Unlinking..." : "Unlink Issue"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">No GitHub issue linked to this ticket.</p>
+            {mode === "idle" && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setMode("create")}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Create Issue
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setMode("link")}>
+                  <Link2 className="w-3.5 h-3.5 mr-1" /> Link Existing
+                </Button>
+              </div>
+            )}
+
+            {mode === "create" && (
+              <div className="space-y-2 border rounded-md p-3 bg-muted/10">
+                <p className="text-xs font-medium">Create GitHub Issue</p>
+                {reposLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading repos...</p>
+                ) : (
+                  <Select value={selectedRepo} onValueChange={handleRepoChange}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {repos?.map((r) => (
+                        <SelectItem key={r.id} value={r.fullName} className="text-xs">{r.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Issue title"
+                  value={issueTitle}
+                  onChange={e => setIssueTitle(e.target.value)}
+                />
+                <Textarea
+                  className="text-xs min-h-[60px] resize-none"
+                  placeholder="Issue description (optional)"
+                  value={issueBody}
+                  onChange={e => setIssueBody(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleCreate} disabled={createIssue.isPending || !selectedRepo || !issueTitle}>
+                    {createIssue.isPending ? "Creating..." : "Create"}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setMode("idle"); setSelectedRepo(""); }}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            {mode === "link" && (
+              <div className="space-y-2 border rounded-md p-3 bg-muted/10">
+                <p className="text-xs font-medium">Link Existing Issue</p>
+                {reposLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading repos...</p>
+                ) : (
+                  <Select value={selectedRepo} onValueChange={handleRepoChange}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {repos?.map((r) => (
+                        <SelectItem key={r.id} value={r.fullName} className="text-xs">{r.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {selectedRepo && (
+                  <>
+                    {issuesLoading ? (
+                      <p className="text-xs text-muted-foreground">Loading issues...</p>
+                    ) : issues && issues.length > 0 ? (
+                      <div className="max-h-36 overflow-y-auto space-y-1">
+                        {issues.map((issue) => (
+                          <button
+                            key={issue.id}
+                            className="w-full text-left p-2 rounded border text-xs hover:bg-muted transition-colors flex items-start gap-2"
+                            onClick={() => handleLinkExisting(issue.number, issue.htmlUrl)}
+                          >
+                            <span className="text-muted-foreground shrink-0">#{issue.number}</span>
+                            <span className="truncate">{issue.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">No open issues found. Enter manually:</p>
+                        <Input className="h-8 text-xs" placeholder="Issue number" value={linkIssueNumber} onChange={e => setLinkIssueNumber(e.target.value)} />
+                        <Input className="h-8 text-xs" placeholder="Issue URL" value={linkIssueUrl} onChange={e => setLinkIssueUrl(e.target.value)} />
+                        <Button size="sm" className="w-full h-7 text-xs" onClick={handleLinkManual} disabled={linkIssue.isPending}>
+                          {linkIssue.isPending ? "Linking..." : "Link"}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <Button size="sm" variant="ghost" className="w-full h-7 text-xs" onClick={() => { setMode("idle"); setSelectedRepo(""); }}>Cancel</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
@@ -433,6 +681,9 @@ export default function TicketDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* GitHub Integration */}
+          <GithubPanel ticketId={ticketId} ticket={ticket} />
 
           {/* KB Suggestions */}
           <Card className="border-border/50 shadow-sm bg-muted/10">

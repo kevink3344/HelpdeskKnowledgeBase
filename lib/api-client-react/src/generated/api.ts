@@ -21,11 +21,16 @@ import type {
   Attachment,
   Comment,
   CreateCommentBody,
+  CreateGithubIssueBody,
   CreateKbArticleBody,
   CreateTicketBody,
   DashboardStats,
+  GithubIssue,
+  GithubRepo,
   HealthStatus,
   KbArticle,
+  LinkGithubIssueBody,
+  ListGithubIssuesParams,
   ListKbArticlesParams,
   ListTicketsParams,
   StatusCount,
@@ -1737,3 +1742,463 @@ export function useGetRecentActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List authenticated user's GitHub repositories
+ */
+export const getListGithubReposUrl = () => {
+  return `/api/github/repos`;
+};
+
+export const listGithubRepos = async (
+  options?: RequestInit,
+): Promise<GithubRepo[]> => {
+  return customFetch<GithubRepo[]>(getListGithubReposUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGithubReposQueryKey = () => {
+  return [`/api/github/repos`] as const;
+};
+
+export const getListGithubReposQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGithubRepos>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listGithubRepos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGithubReposQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGithubRepos>>> = ({
+    signal,
+  }) => listGithubRepos({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGithubRepos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGithubReposQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGithubRepos>>
+>;
+export type ListGithubReposQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List authenticated user's GitHub repositories
+ */
+
+export function useListGithubRepos<
+  TData = Awaited<ReturnType<typeof listGithubRepos>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listGithubRepos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGithubReposQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List issues for a GitHub repository
+ */
+export const getListGithubIssuesUrl = (
+  owner: string,
+  repo: string,
+  params?: ListGithubIssuesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/github/repos/${owner}/${repo}/issues?${stringifiedParams}`
+    : `/api/github/repos/${owner}/${repo}/issues`;
+};
+
+export const listGithubIssues = async (
+  owner: string,
+  repo: string,
+  params?: ListGithubIssuesParams,
+  options?: RequestInit,
+): Promise<GithubIssue[]> => {
+  return customFetch<GithubIssue[]>(
+    getListGithubIssuesUrl(owner, repo, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListGithubIssuesQueryKey = (
+  owner: string,
+  repo: string,
+  params?: ListGithubIssuesParams,
+) => {
+  return [
+    `/api/github/repos/${owner}/${repo}/issues`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListGithubIssuesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGithubIssues>>,
+  TError = ErrorType<unknown>,
+>(
+  owner: string,
+  repo: string,
+  params?: ListGithubIssuesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGithubIssues>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListGithubIssuesQueryKey(owner, repo, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGithubIssues>>
+  > = ({ signal }) =>
+    listGithubIssues(owner, repo, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(owner && repo),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGithubIssues>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGithubIssuesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGithubIssues>>
+>;
+export type ListGithubIssuesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List issues for a GitHub repository
+ */
+
+export function useListGithubIssues<
+  TData = Awaited<ReturnType<typeof listGithubIssues>>,
+  TError = ErrorType<unknown>,
+>(
+  owner: string,
+  repo: string,
+  params?: ListGithubIssuesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGithubIssues>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGithubIssuesQueryOptions(
+    owner,
+    repo,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a GitHub issue from a ticket
+ */
+export const getCreateGithubIssueUrl = (owner: string, repo: string) => {
+  return `/api/github/repos/${owner}/${repo}/issues`;
+};
+
+export const createGithubIssue = async (
+  owner: string,
+  repo: string,
+  createGithubIssueBody: CreateGithubIssueBody,
+  options?: RequestInit,
+): Promise<GithubIssue> => {
+  return customFetch<GithubIssue>(getCreateGithubIssueUrl(owner, repo), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createGithubIssueBody),
+  });
+};
+
+export const getCreateGithubIssueMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGithubIssue>>,
+    TError,
+    { owner: string; repo: string; data: BodyType<CreateGithubIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createGithubIssue>>,
+  TError,
+  { owner: string; repo: string; data: BodyType<CreateGithubIssueBody> },
+  TContext
+> => {
+  const mutationKey = ["createGithubIssue"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createGithubIssue>>,
+    { owner: string; repo: string; data: BodyType<CreateGithubIssueBody> }
+  > = (props) => {
+    const { owner, repo, data } = props ?? {};
+
+    return createGithubIssue(owner, repo, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateGithubIssueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createGithubIssue>>
+>;
+export type CreateGithubIssueMutationBody = BodyType<CreateGithubIssueBody>;
+export type CreateGithubIssueMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a GitHub issue from a ticket
+ */
+export const useCreateGithubIssue = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGithubIssue>>,
+    TError,
+    { owner: string; repo: string; data: BodyType<CreateGithubIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createGithubIssue>>,
+  TError,
+  { owner: string; repo: string; data: BodyType<CreateGithubIssueBody> },
+  TContext
+> => {
+  return useMutation(getCreateGithubIssueMutationOptions(options));
+};
+
+/**
+ * @summary Link a ticket to a GitHub issue
+ */
+export const getLinkTicketToGithubIssueUrl = (id: number) => {
+  return `/api/tickets/${id}/github-link`;
+};
+
+export const linkTicketToGithubIssue = async (
+  id: number,
+  linkGithubIssueBody: LinkGithubIssueBody,
+  options?: RequestInit,
+): Promise<Ticket> => {
+  return customFetch<Ticket>(getLinkTicketToGithubIssueUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(linkGithubIssueBody),
+  });
+};
+
+export const getLinkTicketToGithubIssueMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkTicketToGithubIssue>>,
+    TError,
+    { id: number; data: BodyType<LinkGithubIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkTicketToGithubIssue>>,
+  TError,
+  { id: number; data: BodyType<LinkGithubIssueBody> },
+  TContext
+> => {
+  const mutationKey = ["linkTicketToGithubIssue"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkTicketToGithubIssue>>,
+    { id: number; data: BodyType<LinkGithubIssueBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return linkTicketToGithubIssue(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkTicketToGithubIssueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkTicketToGithubIssue>>
+>;
+export type LinkTicketToGithubIssueMutationBody = BodyType<LinkGithubIssueBody>;
+export type LinkTicketToGithubIssueMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Link a ticket to a GitHub issue
+ */
+export const useLinkTicketToGithubIssue = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkTicketToGithubIssue>>,
+    TError,
+    { id: number; data: BodyType<LinkGithubIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof linkTicketToGithubIssue>>,
+  TError,
+  { id: number; data: BodyType<LinkGithubIssueBody> },
+  TContext
+> => {
+  return useMutation(getLinkTicketToGithubIssueMutationOptions(options));
+};
+
+/**
+ * @summary Unlink a ticket from its GitHub issue
+ */
+export const getUnlinkTicketFromGithubIssueUrl = (id: number) => {
+  return `/api/tickets/${id}/github-link`;
+};
+
+export const unlinkTicketFromGithubIssue = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Ticket> => {
+  return customFetch<Ticket>(getUnlinkTicketFromGithubIssueUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlinkTicketFromGithubIssueMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["unlinkTicketFromGithubIssue"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unlinkTicketFromGithubIssue(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkTicketFromGithubIssueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>
+>;
+
+export type UnlinkTicketFromGithubIssueMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unlink a ticket from its GitHub issue
+ */
+export const useUnlinkTicketFromGithubIssue = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkTicketFromGithubIssue>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getUnlinkTicketFromGithubIssueMutationOptions(options));
+};
